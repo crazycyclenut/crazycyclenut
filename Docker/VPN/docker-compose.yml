@@ -1,0 +1,245 @@
+version: '2'
+
+services:
+  vpn:
+    image: dperson/openvpn-client
+    container_name: vpn
+    restart: unless-stopped
+    cap_add:
+      - net_admin
+    devices:
+      - /dev/net/tun:/dev/net/tun
+    env_file:
+      - /volume1/docker/openvpn-credentials.env
+    environment:
+      - PUID=1026
+      - PGID=101
+      - TZ='EST5EDT'
+      - VPNSP=private internet access
+      - REGION=US_East
+      - PORT_FORWARDING=on
+      - FIREWALL_OUTBOUND_SUBNETS=192.168.100.0/23
+      - HTTPPROXY=on
+#      - HTTPPROXY_USER=x5231434
+#      - HTTPPROXY_PASSWORD=Xk5iw99yuL
+      - SHADOWSOCKS=on
+      - SHADOWSOCKS_PASSWORD=${SHADOW_PASS}
+    networks:
+      - default
+    tmpfs:
+      - /run
+      - /tmp
+    security_opt:
+      - label:disable
+    stdin_open: true
+    tty: true
+    volumes:
+      - /volume1/docker/config/openvpn:/vpn
+    ports:
+      - 5299:5299/tcp
+      - 6767:6767/tcp
+      - 6881:6881/tcp
+      - 6881:6881/udp
+      - 7878:7878/tcp
+      - 8080:8080/tcp
+      - 8090:8090/tcp
+      - 8112:8112/tcp
+      - 8686:8686/tcp
+      - 8989:8989/tcp
+      - 9090:9090/tcp
+      - 9117:9117/tcp
+      - 58846:58846/tcp
+
+  web:
+    image: dperson/nginx
+    container_name: nginx
+    restart: unless-stopped
+    network_mode: service:vpn
+    environment:
+      - PUID=1026
+      - PGID=101
+      - TZ='EST5EDT'
+    links:
+      - vpn:nzbget
+      - vpn:sabnzbd
+      - vpn:deluge
+      - vpn:radarr
+      - vpn:sonarr
+      - vpn:lidarr
+      - vpn:bazarr
+      - vpn:lazylibrarian
+      - vpn:mylar3
+      - vpn:jackett
+
+    networks:
+      - default
+    ports:
+      - "80:80"
+      - "443:443"
+    read_only: true
+    tmpfs:
+      - /run
+      - /tmp
+      - /var/cache/nginx
+    command: -w "http://radarr:8888;/radarr"
+    # radarr shares the network stack of vpn. The service can by reached using
+    # the name of the service as a hostname.
+    depends_on:
+      - vpn
+
+  nzbget:
+    image: ghcr.io/linuxserver/nzbget
+    container_name: nzbget
+    restart: unless-stopped
+    network_mode: service:vpn
+    environment:
+      - PUID=1026
+      - PGID=101
+      - TZ='EST5EDT'
+    volumes:
+      - /volume1/docker/config/nzbget:/config
+      - /volume1/downloads/complete:/downloads
+    depends_on:
+      - vpn
+
+  sabnzbd:
+    image: ghcr.io/linuxserver/sabnzbd
+    container_name: sabnzbd
+    restart: unless-stopped
+    network_mode: service:vpn
+    environment:
+      - PUID=1026
+      - PGID=101
+      - TZ='EST5EDT'
+    volumes:
+      - /volume1/docker/config/sabnzbd:/config
+      - /volume1/downloads/complete:/downloads
+      - /volume1/downloads/incomplete:/incomplete-downloads
+    depends_on:
+      - vpn
+
+  deluge:
+    image: ghcr.io/linuxserver/deluge
+    container_name: deluge
+    restart: unless-stopped
+    network_mode: service:vpn
+    environment:
+      - PUID=1026
+      - PGID=101
+      - TZ='EST5EDT'
+      - DELUGE_LOGLEVEL=error
+    volumes:
+      - /volume1/docker/config/deluge:/config
+      - /volume1/downloads/complete:/downloads
+    depends_on:
+      - vpn	
+
+  radarr:
+    image: ghcr.io/linuxserver/radarr
+    container_name: radarr
+    restart: unless-stopped
+    network_mode: service:vpn
+    environment:
+      - PUID=1026
+      - PGID=101
+      - TZ='EST5EDT'
+    volumes:
+      - /volume1/docker/config/radarr:/config
+      - /volume1/Media/Movies:/movies
+      - /volume1/downloads/complete:/downloads
+    depends_on:
+      - vpn
+
+  sonarr:
+    image: ghcr.io/linuxserver/sonarr
+    container_name: sonarr
+    restart: unless-stopped
+    network_mode: service:vpn
+    environment:
+      - PUID=1026
+      - PGID=101
+      - TZ='EST5EDT'
+    volumes:
+      - /volume1/docker/config/sonarr:/config
+      - "/volume1/Media/TV Shows":/tv
+      - /volume1/downloads/complete:/downloads
+    depends_on:
+      - vpn
+
+  lidarr:
+    image: ghcr.io/linuxserver/lidarr
+    container_name: lidarr
+    restart: unless-stopped
+    network_mode: service:vpn
+    environment:
+      - PUID=1026
+      - PGID=101
+      - TZ='EST5EDT'
+    volumes:
+      - /volume1/docker/config/lidarr:/config
+      - /volume1/Media/Music:/music
+      - /volume1/downloads/complete:/downloads
+    depends_on:
+      - vpn
+
+  bazarr:
+    image: ghcr.io/linuxserver/bazarr
+    container_name: bazarr
+    restart: unless-stopped
+    network_mode: service:vpn
+    environment:
+      - PUID=1026
+      - PGID=101
+      - TZ='EST5EDT'
+    volumes:
+      - /volume1/docker/config/bazarr:/config
+      - /volume1/Media:/media
+    depends_on:
+      - vpn
+
+  lazylibrarian:
+    image: ghcr.io/linuxserver/lazylibrarian
+    container_name: lazylibrarian
+    restart: unless-stopped
+    network_mode: service:vpn
+    environment:
+      - PUID=1026
+      - PGID=101
+      - TZ='EST5EDT'
+    volumes:
+      - /volume1/docker/config/lazylibrarian:/config
+      - /volume1/downloads/complete:/downloads
+      - /volume1/Media/Books:/books
+    depends_on:
+      - vpn
+
+  mylar3:
+    image: ghcr.io/linuxserver/mylar3
+    container_name: mylar3
+    restart: unless-stopped
+    network_mode: service:vpn
+    environment:
+      - PUID=1026
+      - PGID=101
+      - TZ='EST5EDT'
+    volumes:
+      - /volume1/docker/config/mylar3:/config
+      - /volume1/Media/Comics:/comics
+      - /volume1/downloads/complete:/downloads
+    depends_on:
+      - vpn
+
+  jackett:
+    image: ghcr.io/linuxserver/jackett
+    container_name: jackett
+    restart: unless-stopped
+    network_mode: service:vpn
+    environment:
+      - PUID=1026
+      - PGID=101
+      - TZ='EST5EDT'
+    volumes:
+      - /volume1/config/jackett:/config
+      - /volume1/downloads/complete:/downloads
+    depends_on:
+      -vpn
